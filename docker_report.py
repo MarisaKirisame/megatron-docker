@@ -212,7 +212,7 @@ def plot_label(x):
     else:
         return x
 
-def plot(xs_name, xs, ys_name, ys, name, *, tex):
+def plot(xs_name, xs, ys_name, ys, name, *, tex, show=True):
     if len(xs) <= 1:
         return
 
@@ -245,7 +245,8 @@ def plot(xs_name, xs, ys_name, ys, name, *, tex):
         ax1.set_xlim(min_value / 2, max_value * 2)
         ax1.set_ylim(min_value / 2, max_value * 2)
 
-    scatterplot()
+    if show:
+        scatterplot()
 
     def histoplot():
         # https://matplotlib.org/stable/users/explain/colors/colormaps.html#colormaps
@@ -307,21 +308,23 @@ def plot(xs_name, xs, ys_name, ys, name, *, tex):
     plt.close()
 
     with div(style="display:flex"):
-        img(src=pic_path1)
+        if show:
+            img(src=pic_path1)
 
-        def make_table(title, mp):
-            with table(border="1", style="display:inline-table"):
-                caption(title)
-                with thead():
-                    tr(td("fraction"), td("geomean"))
-                with tbody():
-                    for geomean, percentage in mp:
-                        tr(td(f"{percentage:.2f}"), td(f"{geomean:.2f}"))
-                    total = f"{math.exp(sum(speedup)/len(speedup)):.2f}"
-                    tr(td("total"), td(total))
-                if tex and title == "clustering":
-                    command_name = "\\" + xs_name + ys_name + name
-                    output_tex(f"\\newcommand{{{tex_string(command_name)}}}{{{total}}}\n")
+        def make_table(title, mp, *, show):
+            total = f"{math.exp(sum(speedup)/len(speedup)):.2f}"
+            if show:
+                with table(border="1", style="display:inline-table"):
+                    caption(title)
+                    with thead():
+                        tr(td("fraction"), td("geomean"))
+                    with tbody():
+                        for geomean, percentage in mp:
+                            tr(td(f"{percentage:.2f}"), td(f"{geomean:.2f}"))
+                        tr(td("total"), td(total))
+            if tex and title == "clustering":
+                command_name = "\\" + xs_name + ys_name + name
+                output_tex(f"\\newcommand{{{tex_string(command_name)}}}{{{total}}}\n")
 
         def geomean(points):
             speedup = list([math.log(x/y) for x, y in points])
@@ -332,15 +335,15 @@ def plot(xs_name, xs, ys_name, ys, name, *, tex):
             total_size = sum(len(l) for l in points)
             return [(geomean(ps), 100 * len(ps)/total_size)for ps in points]
 
-        make_table("clustering", mp)
-        make_table("slowdown:speedup", points_to_mp([[(xs[i], ys[i]) for i in range(len(xs)) if xs[i] <= ys[i]], [(xs[i], ys[i]) for i in range(len(xs)) if xs[i] > ys[i]]]))
-        make_table(">1e6:<=1e6", points_to_mp([[(xs[i], ys[i]) for i in range(len(xs)) if xs[i] > 1e6], [(xs[i], ys[i]) for i in range(len(xs)) if xs[i] <= 1e6]]))
+        make_table("clustering", mp, show=False)
+        make_table("slowdown:speedup", points_to_mp([[(xs[i], ys[i]) for i in range(len(xs)) if xs[i] <= ys[i]], [(xs[i], ys[i]) for i in range(len(xs)) if xs[i] > ys[i]]]), show=False)
+        make_table(">1e6:<=1e6", points_to_mp([[(xs[i], ys[i]) for i in range(len(xs)) if xs[i] > 1e6], [(xs[i], ys[i]) for i in range(len(xs)) if xs[i] <= 1e6]]), show=False)
 
         # img(src=pic_path2)
 
-        span(f"arithmean={sum(xs)/sum(ys):.2f}")
+        # span(f"arithmean={sum(xs)/sum(ys):.2f}")
 
-def compare(json_htbl, x_name, y_name, *, prefix="", predicate=(lambda v: True), tex):
+def compare(json_htbl, x_name, y_name, *, prefix="", predicate=(lambda v: True), tex, show):
     xs = []
     ys = []
 
@@ -358,7 +361,7 @@ def compare(json_htbl, x_name, y_name, *, prefix="", predicate=(lambda v: True),
                 tree_size.append(json_htbl[v]["DB_D"]["tree_size"])
                 db_meta_read.append(json_htbl[v]["DB_D"]["meta_read_count"])
                 pq_meta_read.append(json_htbl[v]["PQ_D"]["meta_read_count"])
-    plot(x_name, xs, y_name, ys, prefix+"overhead", tex=tex)
+    plot(x_name, xs, y_name, ys, prefix+"overhead", tex=tex, show=False)
 
     xs = []
     ys = []
@@ -368,7 +371,7 @@ def compare(json_htbl, x_name, y_name, *, prefix="", predicate=(lambda v: True),
             y = json_htbl[v][f"{y_name}_D"]["eval_time"]
             xs.append(x)
             ys.append(y)
-    plot(x_name, xs, y_name, ys, prefix+"eval", tex=tex)
+    plot(x_name, xs, y_name, ys, prefix+"eval", tex=tex, show=False)
 
     xs = []
     ys = []
@@ -378,46 +381,22 @@ def compare(json_htbl, x_name, y_name, *, prefix="", predicate=(lambda v: True),
             y = json_htbl[v][f"{y_name}_D"]["overhead_time"] + json_htbl[v][f"{y_name}_D"]["eval_time"]
             xs.append(x)
             ys.append(y)
-    plot(x_name, xs, y_name, ys, prefix+"total", tex=tex)
+    plot(x_name, xs, y_name, ys, prefix+"total", tex=tex, show=show)
 
-    if x_name == "DB" and y_name == "PQ" and len(db_meta_read) >= 1 and len(pq_meta_read) >= 1:
-        hist(tree_size, [1,2,5,10,20,50,100,200,500,1000,2000,5000,10000,20000], "Tree Size")
-        hist(db_meta_read, [1,2,5,10,20,50,100,200,500,1000, 2000], "Number of Nodes Accessed by Double Dirty Bit")
-        hist(pq_meta_read, [1,2,5,10,20,50,100,200,500,1000, 2000], "Number of Nodes Accessed by Spineless Traversal")
+    if show and x_name == "DB" and y_name == "PQ" and len(db_meta_read) >= 1 and len(pq_meta_read) >= 1:
         hist2(db_meta_read, pq_meta_read, "Number of Nodes Accessed", "Double Dirty Bit", "Spineless Traversal")
-
-        fig, ax = plt.subplots()
-
-        # a histogram returns 3 objects : n (i.e. frequncies), bins, patches
-        freq, bins, patches = ax.hist((pq_meta_read, db_meta_read),
-                                      bins=np.geomspace(1, max(db_meta_read + pq_meta_read), 10).tolist(),
-                                      edgecolor='black',
-                                      label=["Spineless Traversal", "Double Dirty Bit"])
-        ax.set_xticks(bins)
-        ax.set_xscale("log")
-
-        ax.xaxis.set_major_formatter(StrMethodFormatter('{x:.0f}'))
-        ax.xaxis.set_minor_formatter(NullFormatter())
-
-        pic_path = f"{count()}.png"
-        ax.set_xlabel("Number of Nodes Accessed")
-        ax.legend(loc="upper right")
-        plt.savefig(out_path + pic_path)
-        plt.close()
-        img(src=pic_path)
-
 
 def run_compare(json_htbl, *, tex=False):
     # compare("NE", "DB")
     # compare("NE", "PQ")
-    compare(json_htbl, "DB", "PQ", tex=tex)
+    compare(json_htbl, "DB", "PQ", tex=tex, show=True)
     def is_small(v):
         tree_size = json_htbl[v]["PQ_D"]["tree_size"]
         meta_read_count = json_htbl[v]["PQ_D"]["meta_read_count"]
         return meta_read_count * 100 < tree_size * 3
 
-    compare(json_htbl, "DB", "PQ", prefix="small_", predicate=is_small, tex=tex)
-    compare(json_htbl, "DB", "PQ", prefix="large_", predicate=(lambda v: not is_small(v)), tex=tex)
+    compare(json_htbl, "DB", "PQ", prefix="small_", predicate=is_small, tex=tex, show=True)
+    compare(json_htbl, "DB", "PQ", prefix="large_", predicate=(lambda v: not is_small(v)), tex=tex, show=False)
 
 def hist2(xs1, xs2, xlabel, label1, label2):
     if len(xs1) == 0:
@@ -473,10 +452,9 @@ def hist(xs, bins, label):
 doc = make_doc(title=out_path)
 with doc:
     a("out.tex", href="out.tex")
+    br()
     for t in trace_list:
-        a(t, href=per_trace(t+".out"))
-        br()
-
+        per_trace(t+".out")
     run_compare(json_htbl, tex=True)
 
 for v in json_htbl.keys():

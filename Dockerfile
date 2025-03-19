@@ -6,7 +6,7 @@ RUN sudo apt-get install -y opam cmake clang clang-format python3 python3-pip py
 RUN opam switch create megatron --empty || true
 RUN opam switch megatron
 RUN opam switch set-invariant "ocaml<5" -y
-RUN opam update && opam install . --deps-only && opam install core dune menhir ppx_deriving ppx_sexp_conv yojson core_unix -y
+RUN opam install . --deps-only && opam install core dune menhir ppx_deriving ppx_sexp_conv yojson core_unix -y
 RUN eval $(opam env)
 RUN python3 -m venv .venv
 RUN .venv/bin/pip install dominate scikit-learn matplotlib
